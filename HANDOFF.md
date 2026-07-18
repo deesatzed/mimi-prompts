@@ -247,3 +247,13 @@ You now have full context. You can pick up development, answer questions about t
 If anything in this handoff is unclear, or if you need clarification on requirements before coding, ask the user directly. Do not guess on core behavior.
 
 Welcome to the project. Let's make his prompt workflow dramatically better.
+
+---
+
+## Current Workflow Navigator Update — 2026-07-18
+
+The current implementation is an offline workflow prompt navigator rather than only a CRUD library. The primary command is `mini suggest --context "..."`. It classifies workflow state, returns at most three choices, supports a numbered selection and small-page retry, and uses bounded `selection_count` frequency only after logical relevance.
+
+`seeds.md` now contains 34 authored prompts and the seed loader preserves each prompt's text with workflow metadata. The core flow does not require an LLM and does not scrape history, auto-save drafts, auto-compose prompts, push, publish, or alter global configuration.
+
+Verification is maintained by `python3 -m unittest discover -s tests -v`, `python3 scripts/tabletop_demo.py --assert --output docs/reports/tabletop-results.json`, and `python3 scripts/release_check.py`.

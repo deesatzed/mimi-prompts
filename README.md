@@ -241,3 +241,16 @@ If you want me to:
 - Generate a one-file "drop-in" version
 
 ...just say the word and we'll iterate.
+
+## Current Workflow Navigator Release
+
+MiniPromptLib is now an offline workflow prompt navigator. Start with the authored 34-prompt panel in a temporary or personal store:
+
+```bash
+python3 seeds.py --storage /tmp/prompts.json
+mini suggest --context "Not sure, lets run through scenarios before deciding."
+```
+
+The default experience shows at most three numbered suggestions. Enter a number with `--choice`, use `--offset 3` for the next small page, or supply revised context to try again. A selected prompt increments `selection_count`; merely showing or previewing one does not.
+
+The core workflow runs offline with no API key, model, network call, or required dependency beyond Python. It does not scrape conversations, auto-save prompts, auto-compose selections, push code, or change global agent configuration. The 34 authored prompts in `seeds.md` are loaded deterministically and preserve their text.

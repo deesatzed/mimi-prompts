@@ -1,0 +1,56 @@
+{
+  "version": 1,
+  "llm_calls": 0,
+  "scenarios": [
+    {
+      "name": "agent_question",
+      "status": "PASS",
+      "detail": "3 question suggestions"
+    },
+    {
+      "name": "user_undecided",
+      "status": "PASS",
+      "detail": "3 undecided suggestions"
+    },
+    {
+      "name": "section_checkpoint",
+      "status": "PASS",
+      "detail": "3 checkpoint suggestions"
+    },
+    {
+      "name": "completion_claim",
+      "status": "PASS",
+      "detail": "3 completion suggestions"
+    },
+    {
+      "name": "build_failure",
+      "status": "PASS",
+      "detail": "2 failure suggestions"
+    },
+    {
+      "name": "more_and_retry",
+      "status": "PASS",
+      "detail": "non-repeating page and reset context"
+    },
+    {
+      "name": "nested_preview",
+      "status": "PASS",
+      "detail": "selected prompt previewed without auto-composition"
+    },
+    {
+      "name": "quick_capture",
+      "status": "PASS",
+      "detail": "draft required explicit save"
+    },
+    {
+      "name": "corrupt_storage",
+      "status": "PASS",
+      "detail": "source bytes preserved"
+    },
+    {
+      "name": "offline_execution",
+      "status": "PASS",
+      "detail": "all scenarios used local deterministic code"
+    }
+  ]
+}

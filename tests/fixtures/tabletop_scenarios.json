@@ -1,0 +1,12 @@
+[
+  {"name": "agent_question", "state": "question"},
+  {"name": "user_undecided", "state": "undecided"},
+  {"name": "section_checkpoint", "state": "checkpoint"},
+  {"name": "completion_claim", "state": "completion"},
+  {"name": "build_failure", "state": "failure"},
+  {"name": "more_and_retry", "state": "checkpoint"},
+  {"name": "nested_preview", "state": "checkpoint"},
+  {"name": "quick_capture", "state": "undecided"},
+  {"name": "corrupt_storage", "state": "general"},
+  {"name": "offline_execution", "state": "general"}
+]

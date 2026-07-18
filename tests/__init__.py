@@ -1,0 +1,1 @@
+"""MiniPromptLib automated tests."""

@@ -20,6 +20,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
+from minipromptlib.storage import load_prompts, save_prompts
+
 
 class MiniPromptLibrary:
     """
@@ -38,18 +40,10 @@ class MiniPromptLibrary:
     # --------------------------- Persistence ---------------------------
 
     def _load(self) -> None:
-        if self.storage_path.exists():
-            try:
-                with open(self.storage_path, "r", encoding="utf-8") as f:
-                    self.prompts = json.load(f)
-            except Exception:
-                self.prompts = {}
-        else:
-            self.prompts = {}
+        self.prompts = load_prompts(self.storage_path)
 
     def _save(self) -> None:
-        with open(self.storage_path, "w", encoding="utf-8") as f:
-            json.dump(self.prompts, f, indent=2, ensure_ascii=False)
+        save_prompts(self.storage_path, self.prompts)
 
     def _now(self) -> str:
         return datetime.now(timezone.utc).isoformat()
@@ -91,6 +85,8 @@ class MiniPromptLibrary:
             "created_at": now,
             "last_used": None,
             "usage_count": 0,
+            "selection_count": 0,
+            "last_selected": None,
             "success_count": 0,
             "failure_count": 0,
             "notes": [],
@@ -101,6 +97,8 @@ class MiniPromptLibrary:
             # Preserve history stats on overwrite/version bump
             old = self.prompts[prompt_id]
             entry["usage_count"] = old.get("usage_count", 0)
+            entry["selection_count"] = old.get("selection_count", 0)
+            entry["last_selected"] = old.get("last_selected")
             entry["success_count"] = old.get("success_count", 0)
             entry["failure_count"] = old.get("failure_count", 0)
             entry["last_used"] = old.get("last_used")
@@ -541,6 +539,16 @@ Make it excellent for use by coding agents like Claude, Grok, or local models.""
             self.prompts[pid].setdefault("notes", []).append(
                 f"{self._now()}: {notes}"
             )
+        self._save()
+
+    def record_selection(self, prompt_id: str) -> None:
+        """Record an explicit navigator selection without claiming task success."""
+        entry = self.prompts.get(prompt_id) or self.get_prompt(prompt_id)
+        if not entry:
+            raise KeyError(f"Prompt '{prompt_id}' not found")
+        pid = entry["id"]
+        self.prompts[pid]["selection_count"] = self.prompts[pid].get("selection_count", 0) + 1
+        self.prompts[pid]["last_selected"] = self._now()
         self._save()
 
     def get_underperforming_prompts(self, min_usage: int = 3, success_threshold: float = 0.6) -> List[Dict[str, Any]]:
