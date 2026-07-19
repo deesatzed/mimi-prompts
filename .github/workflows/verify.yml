@@ -1,0 +1,27 @@
+name: Verify
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Run unit tests
+        run: python3 -m unittest discover -s tests -v
+      - name: Run tabletop verification
+        run: python3 scripts/tabletop_demo.py --assert --output docs/reports/tabletop-results.json
+      - name: Run release check
+        run: python3 scripts/release_check.py
+      - name: Compile Python
+        run: python3 -m py_compile core.py cli.py seeds.py minipromptlib/*.py scripts/*.py tests/*.py
+      - name: Check diff whitespace
+        run: git diff --check

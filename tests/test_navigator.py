@@ -44,6 +44,14 @@ class NavigatorTests(unittest.TestCase):
         self.assertEqual(len(second), 1)
         self.assertFalse({item.prompt_id for item in first} & {item.prompt_id for item in second})
 
+    def test_can_more_is_false_on_the_final_page(self) -> None:
+        session = self.navigator.start(ContextPacket(explicit_state=WorkflowState.CHECKPOINT))
+
+        self.assertTrue(self.navigator.can_more(session))
+        self.navigator.more(session)
+
+        self.assertFalse(self.navigator.can_more(session))
+
     def test_try_again_replaces_context_and_resets_page(self) -> None:
         session = self.navigator.start(ContextPacket(explicit_state=WorkflowState.CHECKPOINT))
         self.navigator.more(session)
@@ -56,6 +64,7 @@ class NavigatorTests(unittest.TestCase):
     def test_preview_and_back_do_not_create_extra_selection(self) -> None:
         session = self.navigator.start(ContextPacket(explicit_state=WorkflowState.CHECKPOINT))
         selected = self.navigator.select(session, 1)
+        self.navigator.nested_page(session)
 
         preview = self.navigator.composition_preview(session)
         self.navigator.back(session)
@@ -63,6 +72,8 @@ class NavigatorTests(unittest.TestCase):
         self.assertIn("Checkpoint prompt 0", preview)
         self.assertEqual(session.selected_prompt_ids, [])
         self.assertEqual(self.library.get_prompt(selected.prompt_id)["selection_count"], 1)
+        self.assertEqual(len(self.navigator.current_page(session)), 3)
+        self.assertIn(selected.prompt_id, {item.prompt_id for item in self.navigator.current_page(session)})
 
     def test_invalid_number_keeps_current_page(self) -> None:
         session = self.navigator.start(ContextPacket(explicit_state=WorkflowState.CHECKPOINT))

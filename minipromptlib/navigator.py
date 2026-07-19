@@ -29,6 +29,10 @@ class WorkflowNavigator:
             session.offset = next_offset
         return self.current_page(session)
 
+    def can_more(self, session: NavigationSession) -> bool:
+        """Return whether the session has another non-empty small page."""
+        return session.offset + 3 < len(session.ranked)
+
     def try_again(self, session: NavigationSession, packet: ContextPacket) -> NavigationSession:
         session.packet = packet
         session.ranked = rank_prompts(packet, self.library.list_prompts(limit=1000))
@@ -60,6 +64,8 @@ class WorkflowNavigator:
     def back(self, session: NavigationSession) -> NavigationSession:
         if session.selected_prompt_ids:
             session.selected_prompt_ids.pop()
+            session.ranked = rank_prompts(session.packet, self.library.list_prompts(limit=1000))
+            session.offset = 0
         return session
 
     def composition_preview(self, session: NavigationSession) -> str:

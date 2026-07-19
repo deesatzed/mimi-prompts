@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="A local workflow prompt navigator for AI-assisted work.">
+    <title>MiniPromptLib — small prompts for the moment you are in</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <header class="topbar">
+      <a class="brand" href="#top" aria-label="MiniPromptLib home">mimi<span>·</span>prompts</a>
+      <nav aria-label="Primary navigation">
+        <a href="#how-it-works">How it works</a>
+        <a href="#install">Install</a>
+        <a href="#hosts">Hosts</a>
+        <a class="nav-source" href="https://github.com/deesatzed/mimi-prompts">GitHub</a>
+      </nav>
+    </header>
+
+    <main id="main">
+      <section class="hero" id="top">
+        <p class="eyebrow">LOCAL · OFFLINE · MIT</p>
+        <h1>Small prompts for the <em>moment</em> you are in.</h1>
+        <p class="lede">MiniPromptLib is a Local workflow prompt navigator. It recognizes whether you are deciding, stuck, reviewing, or finishing—and shows up to three useful next prompts instead of a giant catalog.</p>
+        <div class="hero-actions">
+          <a class="button primary" href="#install">Install in three commands</a>
+          <a class="button quiet" href="https://github.com/deesatzed/mimi-prompts">View source</a>
+        </div>
+        <p class="microcopy">No account. No required model. No tracking.</p>
+      </section>
+
+      <section class="proof" aria-label="Product principles">
+        <article><strong>≤ 3</strong><span>numbered suggestions at a time</span></article>
+        <article><strong>0</strong><span>required network or model calls</span></article>
+        <article><strong>34</strong><span>reviewed starter prompts, packaged locally</span></article>
+      </section>
+
+      <section class="section split" id="how-it-works">
+        <div>
+          <p class="eyebrow">THE DIFFERENCE</p>
+          <h2>Workflow first. Familiarity second.</h2>
+          <p>Selection starts with the immediate workflow state: a question, failure, proposal, checkpoint, completion, uncertainty, or capture. Only then can explicit selection frequency break close ties.</p>
+          <p>That means a popular completion prompt does not crowd out a relevant failure-recovery prompt.</p>
+        </div>
+        <ol class="steps">
+          <li><span>01</span><p><strong>Pass bounded context</strong><br>Only the user message, agent message, and short build status you choose.</p></li>
+          <li><span>02</span><p><strong>Get a small page</strong><br>Three numbered, reasoned suggestions—not an exhaustive list.</p></li>
+          <li><span>03</span><p><strong>Choose deliberately</strong><br>Only a number increases the local selection count.</p></li>
+        </ol>
+      </section>
+
+      <section class="section terminal-section" aria-labelledby="terminal-title">
+        <div class="section-heading">
+          <p class="eyebrow">THE TERMINAL UX</p>
+          <h2 id="terminal-title">A quick answer when “not sure” is the honest answer.</h2>
+        </div>
+        <div class="terminal" role="region" aria-label="Example MiniPromptLib terminal session">
+          <div class="terminal-bar"><span></span><span></span><span></span><b>mini — interactive session</b></div>
+          <pre><code><i>$</i> mini suggest --interactive --context "Not sure how to proceed"
+
+<mark>State: undecided | Page 1</mark>
+<b>1.</b> seed-32-not-sure — matches undecided; used 0x
+<b>2.</b> seed-07-alien-goggles-brainstorm — matches undecided; used 0x
+<b>3.</b> seed-17-compare-three-solution-levels — matches undecided; used 0x
+
+<i>[1-3]</i> use  <i>[m]</i> more  <i>[n]</i> nest  <i>[p]</i> preview  <i>[c]</i> compose
+<i>[r]</i> retry  <i>[a]</i> add thought  <i>[b]</i> back  <i>[q]</i> quit</code></pre>
+        </div>
+        <p class="terminal-note">Previewing, composing, paging, retrying, and backing out never change frequency. Selecting a number does.</p>
+      </section>
+
+      <section class="section install" id="install">
+        <div class="section-heading">
+          <p class="eyebrow">INSTALL</p>
+          <h2>Ready in a local virtual environment.</h2>
+        </div>
+        <div class="command-card">
+          <button class="copy" type="button" data-copy-target="install-command">Copy</button>
+          <pre id="install-command"><code>git clone https://github.com/deesatzed/mimi-prompts.git
+cd mimi-prompts
+python3 -m venv .venv && . .venv/bin/activate
+python -m pip install .
+mini --storage "$PWD/.miniprompts/prompts.json" seed</code></pre>
+        </div>
+        <div class="link-row">
+          <a href="https://github.com/deesatzed/mimi-prompts/blob/main/docs/install.md">Read the installation guide <span>↗</span></a>
+          <a href="https://github.com/deesatzed/mimi-prompts/blob/main/docs/ux-guide.md">Read the UX guide <span>↗</span></a>
+        </div>
+      </section>
+
+      <section class="section hosts" id="hosts">
+        <div class="section-heading">
+          <p class="eyebrow">CROSS-HOST, ONE CONTRACT</p>
+          <h2>Bring your own AI host.</h2>
+          <p>Every adapter calls the same local command. Nothing is installed globally or reads a conversation by itself.</p>
+        </div>
+        <div class="contract"><code>mini suggest --json --context "..." --agent-message "..." --build-status "..."</code></div>
+        <div class="host-grid">
+          <article><p class="label verified">Verified core</p><h3>Local agents</h3><p>Shell and Python callers use the JSON contract directly. No model is needed for navigation.</p></article>
+          <article><p class="label template">Copyable project template</p><h3>Codex</h3><p>Use the project skill template to render the returned small page without duplicating ranking logic.</p></article>
+          <article><p class="label template">Copyable project template</p><h3>Claude Code</h3><p>Add the skill to a project when you choose to make the local command available there.</p></article>
+          <article><p class="label template">Copyable project template</p><h3>Cursor</h3><p>A rule/template can instruct an agent to call the same local JSON contract.</p></article>
+          <article><p class="label manual">Manual fallback</p><h3>Grok</h3><p>Use the CLI with bounded context until a native extension path is independently verified.</p></article>
+        </div>
+        <a class="text-link" href="https://github.com/deesatzed/mimi-prompts/tree/main/docs/hosts">Open host guides <span>→</span></a>
+      </section>
+
+      <section class="section safety">
+        <p class="eyebrow">LOCAL BY DEFAULT</p>
+        <h2>Your prompts stay your prompts.</h2>
+        <div class="safety-grid">
+          <p><strong>No tracking</strong><br>No analytics, telemetry, account, or hosted prompt store.</p>
+          <p><strong>No surprise context</strong><br>The caller chooses the small context packet; MiniPromptLib does not scrape full conversations.</p>
+          <p><strong>No surprise action</strong><br>Suggestions are text, never authorization to push, deploy, delete, or publish.</p>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <p>MiniPromptLib is open source under the <a href="https://github.com/deesatzed/mimi-prompts/blob/main/LICENSE">MIT License</a>.</p>
+      <a href="https://github.com/deesatzed/mimi-prompts">github.com/deesatzed/mimi-prompts</a>
+    </footer>
+    <script src="app.js"></script>
+  </body>
+</html>

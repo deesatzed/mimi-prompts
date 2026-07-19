@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from importlib.resources import files
 from pathlib import Path
 from typing import Any
 
@@ -48,6 +49,11 @@ _STATE_BY_NUMBER = {
 def _slug(value: str) -> str:
     value = re.sub(r"[^a-z0-9]+", "-", value.lower()).strip("-")
     return value[:58] or "prompt"
+
+
+def default_seed_panel() -> Path:
+    """Return the packaged copy of the reviewed authored seed panel."""
+    return Path(str(files("minipromptlib.data").joinpath("seeds.md")))
 
 
 def load_seed_panel(path: str | Path) -> list[dict[str, Any]]:

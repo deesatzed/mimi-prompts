@@ -1,0 +1,16 @@
+---
+description: Offer a small local MiniPromptLib choice set during workflow decisions.
+alwaysApply: false
+---
+
+**Maturity: Copyable project template.** Use only when a project has installed the local `mini` command.
+
+Collect bounded context only: latest user message, latest agent message, and short build/test status.
+
+```bash
+mini suggest --json --context "<latest user message>" --agent-message "<latest agent message>" --build-status "<short status>"
+```
+
+Render at most three choices with returned numbering and reasons. A number selects the matching prompt through the same command with `--choice`. Offer more, retry, or capture if none fits.
+
+This rule must not auto-save, auto-compose, call an external model, send a full conversation, push, deploy, publish, or alter global settings.

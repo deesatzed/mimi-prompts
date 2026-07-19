@@ -105,3 +105,77 @@ class CliUxTests(unittest.TestCase):
 
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("Page 2", result.stdout)
+
+    def test_empty_store_suggests_seed_without_mutating_storage(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            storage = Path(temp_dir) / "empty.json"
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "minipromptlib.cli",
+                    "--storage",
+                    str(storage),
+                    "suggest",
+                    "--context",
+                    "I am not sure what to do next",
+                ],
+                cwd=self.root,
+                check=False,
+                text=True,
+                capture_output=True,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("No saved prompts yet", result.stdout)
+            self.assertIn("mini seed --panel seeds.md", result.stdout)
+            self.assertFalse(storage.exists())
+
+    def test_interactive_more_reports_when_results_are_exhausted(self) -> None:
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "minipromptlib.cli",
+                "--storage",
+                str(self.storage),
+                "suggest",
+                "--state",
+                "failure",
+                "--interactive",
+            ],
+            cwd=self.root,
+            check=False,
+            text=True,
+            input="m\nq\n",
+            capture_output=True,
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("No more matching prompts", result.stdout)
+
+    def test_interactive_nesting_exposes_preview_compose_and_back(self) -> None:
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "minipromptlib.cli",
+                "--storage",
+                str(self.storage),
+                "suggest",
+                "--state",
+                "checkpoint",
+                "--interactive",
+            ],
+            cwd=self.root,
+            check=False,
+            text=True,
+            input="1\nn\n1\np\nb\nc\nq\n",
+            capture_output=True,
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("[n] nest", result.stdout)
+        self.assertIn("Composition preview:", result.stdout)
+        self.assertIn("Composed mini-prompt:", result.stdout)
+        self.assertIn("Backed out of", result.stdout)

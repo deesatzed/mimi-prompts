@@ -14,8 +14,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def run(command: list[str], *, env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
-    result = subprocess.run(command, cwd=ROOT, text=True, capture_output=True, env=env, check=False)
+def run(
+    command: list[str], *, env: dict[str, str] | None = None, cwd: Path = ROOT
+) -> subprocess.CompletedProcess[str]:
+    result = subprocess.run(command, cwd=cwd, text=True, capture_output=True, env=env, check=False)
     if result.returncode:
         raise RuntimeError(
             f"command failed ({result.returncode}): {' '.join(command)}\n{result.stdout}{result.stderr}"
@@ -76,6 +78,17 @@ def main() -> None:
             raise RuntimeError(f"installed mini console script missing: {mini}")
         run([str(mini), "--help"], env=environment)
         checks.append("installed mini console")
+        outside = temp / "outside-source-tree"
+        outside.mkdir()
+        installed_storage = temp / "installed-prompts.json"
+        run([str(mini), "--storage", str(installed_storage), "seed"], env=environment, cwd=outside)
+        seeded = run(
+            [str(mini), "--storage", str(installed_storage), "suggest", "--context", "not sure", "--json"],
+            env=environment,
+            cwd=outside,
+        )
+        assert len(json.loads(seeded.stdout)["suggestions"]) >= 1
+        checks.append("packaged seed outside source tree")
 
     tabletop = ROOT / "docs/reports/tabletop-results.json"
     payload = json.loads(tabletop.read_text(encoding="utf-8"))
@@ -83,6 +96,28 @@ def main() -> None:
     assert len(payload["scenarios"]) == 10
     assert all(item["status"] == "PASS" for item in payload["scenarios"])
     checks.append("saved tabletop evidence")
+
+    public_paths = [
+        ROOT / "LICENSE",
+        ROOT / "CONTRIBUTING.md",
+        ROOT / "SECURITY.md",
+        ROOT / "site/index.html",
+        ROOT / "site/styles.css",
+        ROOT / "site/app.js",
+        ROOT / ".github/workflows/verify.yml",
+        ROOT / ".github/workflows/pages.yml",
+        ROOT / "docs/install.md",
+        ROOT / "docs/ux-guide.md",
+    ]
+    assert all(path.is_file() for path in public_paths)
+    site = (ROOT / "site/index.html").read_text(encoding="utf-8")
+    assert 'href="styles.css"' in site and 'src="app.js"' in site
+    assert "No tracking" in site and "mini suggest --json" in site
+    for guide in ("codex.md", "claude-code.md", "cursor.md", "local-agents.md", "grok.md"):
+        assert (ROOT / "docs/hosts" / guide).is_file()
+    assert "python3 -m unittest discover" in (ROOT / ".github/workflows/verify.yml").read_text()
+    assert "path: site" in (ROOT / ".github/workflows/pages.yml").read_text()
+    checks.append("public repository artifacts")
     print("RELEASE CHECK PASS: " + "; ".join(checks))
 
 

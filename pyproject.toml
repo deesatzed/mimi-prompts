@@ -15,3 +15,6 @@ mini = "minipromptlib.cli:main"
 [tool.setuptools]
 packages = ["minipromptlib"]
 py-modules = ["core"]
+
+[tool.setuptools.package-data]
+minipromptlib = ["data/*.md"]

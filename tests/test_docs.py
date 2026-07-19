@@ -22,3 +22,19 @@ class DocumentationTests(unittest.TestCase):
             text = path.read_text(encoding="utf-8").lower()
             for term in required:
                 self.assertIn(term, text, f"{path.name} is missing {term!r}")
+
+    def test_public_readme_has_install_and_host_links(self) -> None:
+        root = Path(__file__).resolve().parents[1]
+        readme = (root / "README.md").read_text(encoding="utf-8")
+
+        for term in (
+            "python3 -m venv .venv",
+            "python -m pip install .",
+            "mini seed",
+            "mini suggest --interactive",
+            "LICENSE",
+            "docs/install.md",
+            "docs/ux-guide.md",
+            "docs/hosts/",
+        ):
+            self.assertIn(term, readme)

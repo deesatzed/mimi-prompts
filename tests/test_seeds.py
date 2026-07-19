@@ -10,7 +10,7 @@ import unittest
 from pathlib import Path
 
 from core import MiniPromptLibrary
-from minipromptlib.seeds import load_seed_panel, seed_library
+from minipromptlib.seeds import default_seed_panel, load_seed_panel, seed_library
 
 
 class SeedTests(unittest.TestCase):
@@ -60,3 +60,9 @@ class SeedTests(unittest.TestCase):
 
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("Seeded 34 prompt(s).", result.stdout)
+
+    def test_packaged_seed_panel_has_all_authored_prompts(self) -> None:
+        panel = default_seed_panel()
+
+        self.assertTrue(panel.is_file())
+        self.assertEqual(len(load_seed_panel(panel)), 34)

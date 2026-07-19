@@ -13,7 +13,7 @@ from .core import MiniPromptLibrary, make_ollama_chat_fn
 from .models import ContextPacket, WorkflowState
 from .navigator import InvalidChoiceError, WorkflowNavigator
 from .ranking import page_ranked_prompts
-from .seeds import seed_library
+from .seeds import default_seed_panel, seed_library
 
 
 def _library(args: argparse.Namespace) -> MiniPromptLibrary:
@@ -134,6 +134,9 @@ def cmd_suggest(args: argparse.Namespace) -> None:
     navigator = WorkflowNavigator(library)
     packet = _packet(args)
     if args.interactive:
+        if not library.list_prompts(limit=1):
+            print("No saved prompts yet. Seed the included panel with: mini seed --panel seeds.md")
+            return
         _interactive_suggest(navigator, packet)
         return
     payload, session = _suggestion_payload(packet, navigator, args.offset)
@@ -154,6 +157,9 @@ def cmd_suggest(args: argparse.Namespace) -> None:
 
     print(f"State: {payload['state']}")
     if not payload["suggestions"]:
+        if not library.list_prompts(limit=1):
+            print("No saved prompts yet. Seed the included panel with: mini seed --panel seeds.md")
+            return
         print("No matching prompts. Try again with more context or add a thought.")
         return
     for item in payload["suggestions"]:
@@ -174,18 +180,49 @@ def _interactive_suggest(navigator: WorkflowNavigator, packet: ContextPacket) ->
         print(f"State: {state} | Page {session.offset // 3 + 1}")
         for number, item in enumerate(page, 1):
             print(f"{number}. {item.prompt.get('name', item.prompt_id)} — {item.reason}")
-        action = input("[1-3] use  [m] more  [r] retry  [a] add thought  [b] back  [q] quit: ").strip().lower()
+        action = input(
+            "[1-3] use  [m] more  [n] nest  [p] preview  [c] compose  "
+            "[r] retry  [a] add thought  [b] back  [q] quit: "
+        ).strip().lower()
         if action in {"q", "quit"}:
             return
         if action in {"m", "more"}:
+            if not navigator.can_more(session):
+                print("No more matching prompts. Retry with more context or add a thought.")
+                continue
             navigator.more(session)
+            continue
+        if action in {"n", "nest"}:
+            if not session.selected_prompt_ids:
+                print("Choose a numbered prompt before adding a nested prompt.")
+                continue
+            navigator.nested_page(session)
+            continue
+        if action in {"p", "preview"}:
+            preview = navigator.composition_preview(session)
+            if not preview:
+                print("Choose a numbered prompt before previewing a composition.")
+            else:
+                print(f"Composition preview:\n\n{preview}")
+            continue
+        if action in {"c", "compose"}:
+            composition = navigator.composition_preview(session)
+            if not composition:
+                print("Choose a numbered prompt before composing it.")
+            else:
+                print(f"Composed mini-prompt:\n\n{composition}")
             continue
         if action in {"r", "retry"}:
             context = input("Revised context: ").strip()
             navigator.try_again(session, ContextPacket(last_user_message=context))
             continue
         if action in {"b", "back"}:
+            if not session.selected_prompt_ids:
+                print("No selected prompt to back out of.")
+                continue
+            removed = session.selected_prompt_ids[-1]
             navigator.back(session)
+            print(f"Backed out of: {removed}")
             continue
         if action in {"a", "add"}:
             thought = input("Prompt to capture: ").strip()
@@ -202,10 +239,8 @@ def _interactive_suggest(navigator: WorkflowNavigator, packet: ContextPacket) ->
                 print(exc)
                 continue
             print(f"Selected: {selected.prompt_id}\n\n{selected.prompt['prompt_text']}")
-            if input("Add another nested prompt? [y/N]: ").strip().lower() in {"y", "yes"}:
-                navigator.nested_page(session)
             continue
-        print("Use a displayed number, m, r, a, b, or q.")
+        print("Use a displayed number, m, n, p, c, r, a, b, or q.")
 
 
 def cmd_capture(args: argparse.Namespace) -> None:
@@ -270,7 +305,7 @@ def build_parser() -> argparse.ArgumentParser:
     mine.set_defaults(func=cmd_mine)
 
     seed = sub.add_parser("seed", help="Load the authored seed panel")
-    seed.add_argument("--panel", default="seeds.md")
+    seed.add_argument("--panel", default=str(default_seed_panel()))
     seed.add_argument("--overwrite", action="store_true")
     seed.set_defaults(func=cmd_seed)
 
