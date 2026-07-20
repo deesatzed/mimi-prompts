@@ -66,3 +66,25 @@ class SeedTests(unittest.TestCase):
 
         self.assertTrue(panel.is_file())
         self.assertEqual(len(load_seed_panel(panel)), 34)
+
+    def test_seeded_prompts_display_their_authored_human_title(self) -> None:
+        library = MiniPromptLibrary(self.storage)
+        seed_library(library, self.root / "seeds.md")
+
+        entry = library.get_prompt("seed-01-explain-it-simply")
+
+        self.assertEqual(entry["name"], "Explain It Simply")
+        self.assertNotEqual(entry["name"], entry["id"])
+
+    def test_reseeding_refreshes_display_title_idempotently(self) -> None:
+        library = MiniPromptLibrary(self.storage)
+        seed_library(library, self.root / "seeds.md")
+        library.prompts["seed-01-explain-it-simply"]["name"] = "Manually Renamed"
+        library._save()
+
+        inserted = seed_library(library, self.root / "seeds.md")
+
+        self.assertEqual(inserted, 0)
+        self.assertEqual(
+            library.get_prompt("seed-01-explain-it-simply")["name"], "Explain It Simply"
+        )

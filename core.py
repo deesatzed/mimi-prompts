@@ -110,6 +110,66 @@ class MiniPromptLibrary:
         self._save()
         return prompt_id
 
+    def delete_prompt(self, prompt_id: str) -> Optional[Dict[str, Any]]:
+        """Remove a prompt by exact ID or fuzzy name match. Returns the removed entry, or None."""
+        pid = self._normalize_name(prompt_id)
+        if pid not in self.prompts:
+            match = self.get_prompt(prompt_id)
+            pid = match["id"] if match else None
+        if not pid or pid not in self.prompts:
+            return None
+        removed = self.prompts.pop(pid)
+        self._save()
+        return removed
+
+    def rename_prompt(self, prompt_id: str, new_name: str, *, overwrite: bool = False) -> Dict[str, Any]:
+        """Update a prompt's display name (its ID is unaffected). Refuses name collisions unless overwrite."""
+        entry = self.get_prompt(prompt_id)
+        if not entry:
+            raise KeyError(f"Prompt '{prompt_id}' not found")
+        pid = entry["id"]
+        new_name = new_name.strip()
+        if not new_name:
+            raise ValueError("new_name cannot be empty")
+        collision = next(
+            (other_id for other_id, other in self.prompts.items() if other_id != pid and other.get("name") == new_name),
+            None,
+        )
+        if collision and not overwrite:
+            raise ValueError(f"Name '{new_name}' is already used by '{collision}'. Pass overwrite=True to proceed anyway.")
+        self.prompts[pid]["name"] = new_name
+        self.prompts[pid]["version"] = self.prompts[pid].get("version", 1) + 1
+        self._save()
+        return self.prompts[pid].copy()
+
+    def edit_prompt(
+        self,
+        prompt_id: str,
+        *,
+        prompt_text: Optional[str] = None,
+        description: Optional[str] = None,
+        tags: Optional[List[str]] = None,
+        category: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Mutate only the supplied fields of an existing prompt; bumps its version."""
+        entry = self.get_prompt(prompt_id)
+        if not entry:
+            raise KeyError(f"Prompt '{prompt_id}' not found")
+        pid = entry["id"]
+        if prompt_text is not None:
+            if not prompt_text.strip():
+                raise ValueError("prompt_text cannot be empty")
+            self.prompts[pid]["prompt_text"] = prompt_text.strip()
+        if description is not None:
+            self.prompts[pid]["description"] = description.strip()
+        if tags is not None:
+            self.prompts[pid]["tags"] = sorted(set(tags))
+        if category is not None:
+            self.prompts[pid]["category"] = category.lower().strip()
+        self.prompts[pid]["version"] = self.prompts[pid].get("version", 1) + 1
+        self._save()
+        return self.prompts[pid].copy()
+
     def get_prompt(self, prompt_id: str) -> Optional[Dict[str, Any]]:
         """Retrieve full prompt entry by ID or name."""
         pid = self._normalize_name(prompt_id)

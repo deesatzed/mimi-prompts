@@ -93,7 +93,13 @@ def seed_library(
     """Save the authored panel once and return the number of inserted prompts."""
     inserted = 0
     for seed in load_seed_panel(panel_path):
-        if library.get_prompt(seed["name"]) and not overwrite:
+        existing = library.get_prompt(seed["name"])
+        if existing and not overwrite:
+            # Re-seeding an existing store still refreshes the display title
+            # idempotently, even when the prompt body itself is left alone.
+            if existing.get("name") != seed["source_title"]:
+                library.prompts[existing["id"]]["name"] = seed["source_title"]
+                library._save()
             continue
         prompt_id = library.save_mini_prompt(
             seed["prompt_text"],
@@ -103,6 +109,7 @@ def seed_library(
             description=seed["description"],
             overwrite=overwrite,
         )
+        library.prompts[prompt_id]["name"] = seed["source_title"]
         library.prompts[prompt_id]["workflow_states"] = seed["workflow_states"]
         library.prompts[prompt_id]["source_seed_number"] = seed["number"]
         library.prompts[prompt_id]["source_title"] = seed["source_title"]

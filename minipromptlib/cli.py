@@ -79,6 +79,46 @@ def cmd_search(args: argparse.Namespace) -> None:
         print("No matches.")
 
 
+def cmd_rm(args: argparse.Namespace) -> None:
+    library = _library(args)
+    entry = library.get_prompt(args.prompt_id)
+    if not entry:
+        raise SystemExit(f"Prompt '{args.prompt_id}' not found.")
+    if not args.yes:
+        answer = input(f"Delete '{entry.get('name', entry['id'])}' ({entry['id']})? [y/N]: ").strip().lower()
+        if answer not in {"y", "yes"}:
+            print("Not deleted.")
+            return
+    library.delete_prompt(entry["id"])
+    print(f"Deleted: {entry['id']}")
+
+
+def cmd_rename(args: argparse.Namespace) -> None:
+    library = _library(args)
+    try:
+        updated = library.rename_prompt(args.prompt_id, args.new_name, overwrite=args.overwrite)
+    except (KeyError, ValueError) as exc:
+        raise SystemExit(str(exc)) from exc
+    print(f"Renamed {updated['id']} to: {updated['name']}")
+
+
+def cmd_edit(args: argparse.Namespace) -> None:
+    library = _library(args)
+    if args.text is None and args.description is None and args.tags is None and args.category is None:
+        raise SystemExit("Nothing to edit. Supply at least one of --text, --description, --tags, --category.")
+    try:
+        updated = library.edit_prompt(
+            args.prompt_id,
+            prompt_text=args.text,
+            description=args.description,
+            tags=args.tags,
+            category=args.category,
+        )
+    except (KeyError, ValueError) as exc:
+        raise SystemExit(str(exc)) from exc
+    print(f"Updated: {updated['id']} (version {updated['version']})")
+
+
 def cmd_improve(args: argparse.Namespace) -> None:
     prompt = _library(args).get_prompt(args.prompt_id)
     if not prompt:
@@ -345,6 +385,25 @@ def build_parser() -> argparse.ArgumentParser:
     get = sub.add_parser("get", help="Show a prompt")
     get.add_argument("prompt_id")
     get.set_defaults(func=cmd_get)
+
+    rm = sub.add_parser("rm", help="Delete a prompt")
+    rm.add_argument("prompt_id")
+    rm.add_argument("--yes", action="store_true", help="Skip the confirmation prompt.")
+    rm.set_defaults(func=cmd_rm)
+
+    rename = sub.add_parser("rename", help="Rename a prompt's display name")
+    rename.add_argument("prompt_id")
+    rename.add_argument("new_name")
+    rename.add_argument("--overwrite", action="store_true", help="Allow reusing an existing display name.")
+    rename.set_defaults(func=cmd_rename)
+
+    edit = sub.add_parser("edit", help="Edit a prompt's text, description, tags, or category")
+    edit.add_argument("prompt_id")
+    edit.add_argument("--text")
+    edit.add_argument("--description")
+    edit.add_argument("--tags", nargs="*")
+    edit.add_argument("--category")
+    edit.set_defaults(func=cmd_edit)
 
     search = sub.add_parser("search", help="Keyword search")
     search.add_argument("query")
