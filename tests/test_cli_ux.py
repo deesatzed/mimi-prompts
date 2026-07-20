@@ -128,7 +128,7 @@ class CliUxTests(unittest.TestCase):
 
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertIn("No saved prompts yet", result.stdout)
-            self.assertIn("mini seed --panel seeds.md", result.stdout)
+            self.assertIn("mini seed", result.stdout)
             self.assertFalse(storage.exists())
 
     def test_interactive_more_reports_when_results_are_exhausted(self) -> None:

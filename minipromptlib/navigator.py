@@ -50,6 +50,14 @@ class WorkflowNavigator:
             session.selected_prompt_ids.append(selected.prompt_id)
         return selected
 
+    def view(self, session: NavigationSession, choice: int) -> RankedPrompt:
+        """Return a candidate's full text without recording a selection."""
+        page = self.current_page(session)
+        index = choice - 1
+        if index < 0 or index >= len(page):
+            raise InvalidChoiceError(f"Choose a number from 1 to {len(page)}.")
+        return page[index]
+
     def nested_page(self, session: NavigationSession) -> list[RankedPrompt]:
         """Offer another small layer without repeating selected prompt IDs."""
         remaining = [
@@ -63,7 +71,8 @@ class WorkflowNavigator:
 
     def back(self, session: NavigationSession) -> NavigationSession:
         if session.selected_prompt_ids:
-            session.selected_prompt_ids.pop()
+            removed_id = session.selected_prompt_ids.pop()
+            self.library.unrecord_selection(removed_id)
             session.ranked = rank_prompts(session.packet, self.library.list_prompts(limit=1000))
             session.offset = 0
         return session

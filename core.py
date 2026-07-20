@@ -551,6 +551,20 @@ Make it excellent for use by coding agents like Claude, Grok, or local models.""
         self.prompts[pid]["last_selected"] = self._now()
         self._save()
 
+    def unrecord_selection(self, prompt_id: str) -> None:
+        """Undo one explicit selection (e.g. the user backed out of it).
+
+        Clamped at zero so this can never push the counter negative even if called
+        more times than a matching `record_selection`.
+        """
+        entry = self.prompts.get(prompt_id) or self.get_prompt(prompt_id)
+        if not entry:
+            return
+        pid = entry["id"]
+        current = self.prompts[pid].get("selection_count", 0)
+        self.prompts[pid]["selection_count"] = max(current - 1, 0)
+        self._save()
+
     def get_underperforming_prompts(self, min_usage: int = 3, success_threshold: float = 0.6) -> List[Dict[str, Any]]:
         """Find prompts that might benefit from improvement."""
         under = []

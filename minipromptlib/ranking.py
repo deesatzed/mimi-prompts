@@ -51,17 +51,22 @@ def rank_prompts(packet: ContextPacket, prompts: Iterable[dict]) -> list[RankedP
     ranked: list[RankedPrompt] = []
 
     for prompt in candidates:
-        state_score = 10.0 if state in set(prompt.get("workflow_states", [])) else 0.0
+        prompt_matches_state = state in set(prompt.get("workflow_states", []))
+        state_score = 10.0 if prompt_matches_state else 0.0
         overlap = len(context_tokens & _prompt_tokens(prompt))
         logical_score = state_score + min(float(overlap), 5.0)
         count = max(int(prompt.get("selection_count", 0)), 0)
         frequency_score = math.log1p(count) / denominator if highest_frequency else 0.0
+        if prompt_matches_state:
+            reason = f"matches {state}; used {count}x"
+        else:
+            reason = f"closest available — no {state} prompts yet; used {count}x"
         ranked.append(
             RankedPrompt(
                 prompt_id=prompt["id"],
                 prompt=prompt.copy(),
                 score=logical_score + (frequency_score * 2.0),
-                reason=f"matches {state}; used {count}x",
+                reason=reason,
                 logical_score=logical_score,
                 frequency_score=frequency_score,
             )

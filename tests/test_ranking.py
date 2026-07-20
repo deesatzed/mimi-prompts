@@ -52,3 +52,14 @@ class RankingTests(unittest.TestCase):
 
         self.assertIn("undecided", ranked[0].reason)
         self.assertIn("used 3x", ranked[0].reason)
+        self.assertNotIn("closest available", ranked[0].reason)
+
+    def test_fallback_candidates_do_not_claim_a_false_match(self) -> None:
+        packet = ContextPacket(explicit_state=WorkflowState.FAILURE)
+        ranked = rank_prompts(packet, [prompt("only-checkpoint", states=["checkpoint"], selections=2)])
+
+        self.assertEqual(len(ranked), 1)
+        self.assertNotIn("matches failure", ranked[0].reason)
+        self.assertIn("closest available", ranked[0].reason)
+        self.assertIn("no failure prompts yet", ranked[0].reason)
+        self.assertIn("used 2x", ranked[0].reason)

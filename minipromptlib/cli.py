@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -16,7 +17,18 @@ from .ranking import page_ranked_prompts
 from .seeds import default_seed_panel, seed_library
 
 
+def resolve_storage_path(cli_value: str | None) -> str:
+    """Resolve the storage path: --storage flag > MINI_STORAGE env var > default."""
+    if cli_value:
+        return cli_value
+    env_value = os.environ.get("MINI_STORAGE")
+    if env_value:
+        return env_value
+    return "~/.miniprompts/prompts.json"
+
+
 def _library(args: argparse.Namespace) -> MiniPromptLibrary:
+    args.storage = resolve_storage_path(getattr(args, "storage", None))
     return MiniPromptLibrary(args.storage)
 
 
@@ -78,6 +90,11 @@ def cmd_improve(args: argparse.Namespace) -> None:
 
 def cmd_mine(args: argparse.Namespace) -> None:
     """Preserve the optional legacy conversation-mining CLI surface."""
+    if not args.model:
+        raise SystemExit(
+            "mine requires --model <model-id>. The user chooses the model; "
+            "there is no built-in default. Supply the exact local Ollama model id you want to use."
+        )
     if args.file:
         conversation = Path(args.file).read_text(encoding="utf-8")
     elif args.text:
@@ -135,13 +152,22 @@ def cmd_suggest(args: argparse.Namespace) -> None:
     packet = _packet(args)
     if args.interactive:
         if not library.list_prompts(limit=1):
-            print("No saved prompts yet. Seed the included panel with: mini seed --panel seeds.md")
+            print("No saved prompts yet. Run: mini seed")
             return
         _interactive_suggest(navigator, packet)
         return
     payload, session = _suggestion_payload(packet, navigator, args.offset)
 
     if args.choice:
+        if args.expect:
+            page = navigator.current_page(session)
+            index = args.choice - 1
+            actual_id = page[index].prompt_id if 0 <= index < len(page) else None
+            if actual_id != args.expect:
+                raise SystemExit(
+                    f"Suggestion {args.choice} is now '{actual_id}', not '{args.expect}'. "
+                    "The page changed since you read it; rerun suggest and choose again."
+                )
         try:
             selected = navigator.select(session, args.choice)
         except InvalidChoiceError as exc:
@@ -158,7 +184,7 @@ def cmd_suggest(args: argparse.Namespace) -> None:
     print(f"State: {payload['state']}")
     if not payload["suggestions"]:
         if not library.list_prompts(limit=1):
-            print("No saved prompts yet. Seed the included panel with: mini seed --panel seeds.md")
+            print("No saved prompts yet. Run: mini seed")
             return
         print("No matching prompts. Try again with more context or add a thought.")
         return
@@ -168,12 +194,15 @@ def cmd_suggest(args: argparse.Namespace) -> None:
         print(f"\nSelected: {payload['selected']['id']}\n")
         print(payload["selected"]["prompt_text"])
     else:
-        print("[1-3] use  [--offset 3] more  [new context] try again  [capture] add thought")
+        context = getattr(args, "context", "") or ""
+        print(f'More: mini suggest --context "{context}" --offset {args.offset + 3}')
+        print('Capture a thought: mini capture "<your thought>"')
 
 
 def _interactive_suggest(navigator: WorkflowNavigator, packet: ContextPacket) -> None:
     """Small terminal loop for number, more, retry, nesting, and capture actions."""
     session = navigator.start(packet)
+    print(f"Storage: {navigator.library.storage_path}")
     while True:
         page = navigator.current_page(session)
         state = classify_workflow_state(session.packet).state.value
@@ -181,11 +210,37 @@ def _interactive_suggest(navigator: WorkflowNavigator, packet: ContextPacket) ->
         for number, item in enumerate(page, 1):
             print(f"{number}. {item.prompt.get('name', item.prompt_id)} — {item.reason}")
         action = input(
-            "[1-3] use  [m] more  [n] nest  [p] preview  [c] compose  "
-            "[r] retry  [a] add thought  [b] back  [q] quit: "
+            "[1-3] use  [v N] view  [m] more  [n] nest  [p] preview  [c] compose  "
+            "[r] retry  [a] add thought  [b] back  [h] help  [q] quit: "
         ).strip().lower()
         if action in {"q", "quit"}:
             return
+        if action in {"h", "help", "?"}:
+            print(
+                "1-3 = use that suggestion (records a selection)\n"
+                "v N = view suggestion N's full text without selecting it\n"
+                "m   = show the next small page (more)\n"
+                "n   = add another prompt on top of your current selection (nest)\n"
+                "p   = preview the composed text of your selections so far\n"
+                "c   = same as preview, shown as the final composed mini-prompt\n"
+                "r   = retry with revised context\n"
+                "a   = capture a new thought as a reusable prompt draft\n"
+                "b   = back out of your most recent selection (undoes its count)\n"
+                "q   = quit"
+            )
+            continue
+        if action.startswith("v"):
+            rest = action[1:].strip()
+            if not rest.isdigit():
+                print("Use 'v' followed by a number, e.g. 'v 2'.")
+                continue
+            try:
+                viewed = navigator.view(session, int(rest))
+            except InvalidChoiceError as exc:
+                print(exc)
+                continue
+            print(f"Viewing (not selected): {viewed.prompt_id}\n\n{viewed.prompt['prompt_text']}")
+            continue
         if action in {"m", "more"}:
             if not navigator.can_more(session):
                 print("No more matching prompts. Retry with more context or add a thought.")
@@ -240,7 +295,7 @@ def _interactive_suggest(navigator: WorkflowNavigator, packet: ContextPacket) ->
                 continue
             print(f"Selected: {selected.prompt_id}\n\n{selected.prompt['prompt_text']}")
             continue
-        print("Use a displayed number, m, n, p, c, r, a, b, or q.")
+        print("Use a displayed number, v N, m, n, p, c, r, a, b, h, or q.")
 
 
 def cmd_capture(args: argparse.Namespace) -> None:
@@ -264,7 +319,11 @@ def cmd_capture(args: argparse.Namespace) -> None:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="MiniPromptLib workflow prompt navigator.")
-    parser.add_argument("--storage", default="~/.miniprompts/prompts.json")
+    parser.add_argument(
+        "--storage",
+        default=None,
+        help="Prompt store path. Falls back to $MINI_STORAGE, then ~/.miniprompts/prompts.json.",
+    )
     sub = parser.add_subparsers(dest="command", required=True)
 
     save = sub.add_parser("save", help="Save a prompt")
@@ -300,7 +359,12 @@ def build_parser() -> argparse.ArgumentParser:
     mine = sub.add_parser("mine", help="Optionally mine a conversation with a configured local model")
     mine.add_argument("--file", "-f")
     mine.add_argument("--text", "-t")
-    mine.add_argument("--model", "-m", default="qwen2.5-coder:32b")
+    mine.add_argument(
+        "--model",
+        "-m",
+        default=None,
+        help="Required. The exact model id to use (no built-in default; the user always chooses).",
+    )
     mine.add_argument("--max-candidates", type=int, default=10)
     mine.set_defaults(func=cmd_mine)
 
@@ -316,6 +380,11 @@ def build_parser() -> argparse.ArgumentParser:
     suggest.add_argument("--state", choices=[state.value for state in WorkflowState])
     suggest.add_argument("--offset", type=int, default=0)
     suggest.add_argument("--choice", type=int)
+    suggest.add_argument(
+        "--expect",
+        default=None,
+        help="Abort --choice if the suggestion at that number is no longer this prompt id.",
+    )
     suggest.add_argument("--json", action="store_true")
     suggest.add_argument("--interactive", action="store_true")
     suggest.set_defaults(func=cmd_suggest)

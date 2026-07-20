@@ -61,19 +61,50 @@ class NavigatorTests(unittest.TestCase):
         self.assertIs(updated, session)
         self.assertEqual(session.offset, 0)
 
-    def test_preview_and_back_do_not_create_extra_selection(self) -> None:
+    def test_preview_does_not_create_extra_selection(self) -> None:
         session = self.navigator.start(ContextPacket(explicit_state=WorkflowState.CHECKPOINT))
         selected = self.navigator.select(session, 1)
         self.navigator.nested_page(session)
 
         preview = self.navigator.composition_preview(session)
-        self.navigator.back(session)
 
         self.assertIn("Checkpoint prompt 0", preview)
-        self.assertEqual(session.selected_prompt_ids, [])
         self.assertEqual(self.library.get_prompt(selected.prompt_id)["selection_count"], 1)
+
+    def test_back_undoes_the_selection_it_removes(self) -> None:
+        session = self.navigator.start(ContextPacket(explicit_state=WorkflowState.CHECKPOINT))
+        selected = self.navigator.select(session, 1)
+        self.navigator.nested_page(session)
+
+        self.navigator.back(session)
+
+        self.assertEqual(session.selected_prompt_ids, [])
+        self.assertEqual(self.library.get_prompt(selected.prompt_id)["selection_count"], 0)
         self.assertEqual(len(self.navigator.current_page(session)), 3)
         self.assertIn(selected.prompt_id, {item.prompt_id for item in self.navigator.current_page(session)})
+
+    def test_back_with_no_selection_is_a_no_op(self) -> None:
+        session = self.navigator.start(ContextPacket(explicit_state=WorkflowState.CHECKPOINT))
+
+        result = self.navigator.back(session)
+
+        self.assertIs(result, session)
+        self.assertEqual(session.selected_prompt_ids, [])
+
+    def test_view_returns_candidate_without_recording_selection(self) -> None:
+        session = self.navigator.start(ContextPacket(explicit_state=WorkflowState.CHECKPOINT))
+
+        viewed = self.navigator.view(session, 1)
+
+        self.assertEqual(viewed.prompt_id, "checkpoint-0")
+        self.assertEqual(self.library.get_prompt(viewed.prompt_id)["selection_count"], 0)
+        self.assertEqual(session.selected_prompt_ids, [])
+
+    def test_view_invalid_number_raises(self) -> None:
+        session = self.navigator.start(ContextPacket(explicit_state=WorkflowState.CHECKPOINT))
+
+        with self.assertRaises(InvalidChoiceError):
+            self.navigator.view(session, 9)
 
     def test_invalid_number_keeps_current_page(self) -> None:
         session = self.navigator.start(ContextPacket(explicit_state=WorkflowState.CHECKPOINT))

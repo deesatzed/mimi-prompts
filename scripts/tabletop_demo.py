@@ -63,6 +63,7 @@ def run_tabletops() -> dict:
         scenarios.append(_pass("nested_preview", "selected prompt previewed without auto-composition"))
 
         draft = create_capture_draft("Not sure, lets run through scenarios or tabletops and then decide.")
+        assert draft.name == "not-sure-run-through-scenarios-tabletops-decide"
         assert not library.get_prompt(draft.name)
         saved_id = save_capture_draft(library, draft)
         assert library.get_prompt(saved_id)["prompt_text"] == draft.prompt_text
