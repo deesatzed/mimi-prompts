@@ -46,6 +46,51 @@ _STATE_BY_NUMBER = {
 }
 
 
+# Explicit, authored folder assignment for the seed panel (schema v3 taxonomy).
+# Authored rather than derived from title text so it stays stable and reviewable.
+_FOLDER_BY_NUMBER = {
+    1: "explain/simplify",
+    2: "review/scope",
+    3: "explain/value",
+    4: "discover/problems",
+    5: "onboard/terminal",
+    6: "checkpoint/sync",
+    7: "discover/brainstorm",
+    8: "discover/needs",
+    9: "review/critique",
+    10: "ship/handoff",
+    11: "discover/user",
+    12: "discover/job-to-be-done",
+    13: "review/problem-vs-solution",
+    14: "review/assumptions",
+    15: "review/falsify",
+    16: "decide/success-criteria",
+    17: "decide/compare-options",
+    18: "review/simplify-workflow",
+    19: "review/ux-friction",
+    20: "review/novice-expert",
+    21: "decide/scope",
+    22: "review/feature-necessity",
+    23: "discover/existing-solutions",
+    24: "review/duplication",
+    25: "review/edge-cases",
+    26: "review/safety",
+    27: "decide/pre-mortem",
+    28: "review/novelty",
+    29: "decide/memo",
+    30: "ship/handoff",
+    31: "ship/verify-clone",
+    32: "decide/undecided",
+    33: "ship/docs",
+    34: "ship/status",
+}
+
+
+def default_folder_for_seed(number: int) -> str:
+    """Return the authored folder for a numbered seed, or a safe default."""
+    return _FOLDER_BY_NUMBER.get(number, "general")
+
+
 def _slug(value: str) -> str:
     value = re.sub(r"[^a-z0-9]+", "-", value.lower()).strip("-")
     return value[:58] or "prompt"
@@ -77,6 +122,7 @@ def load_seed_panel(path: str | Path) -> list[dict[str, Any]]:
                 "description": f"Authored seed #{number}: {title}",
                 "tags": ["seed", "workflow", *states],
                 "category": "workflow",
+                "folder": default_folder_for_seed(number),
                 "workflow_states": list(states),
                 "source_title": title,
             }
@@ -108,8 +154,10 @@ def seed_library(
             category=seed["category"],
             description=seed["description"],
             overwrite=overwrite,
+            folder=seed["folder"],
         )
         library.prompts[prompt_id]["name"] = seed["source_title"]
+        library.prompts[prompt_id]["folder"] = seed["folder"]
         library.prompts[prompt_id]["workflow_states"] = seed["workflow_states"]
         library.prompts[prompt_id]["source_seed_number"] = seed["number"]
         library.prompts[prompt_id]["source_title"] = seed["source_title"]

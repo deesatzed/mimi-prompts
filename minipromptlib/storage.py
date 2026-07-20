@@ -9,11 +9,44 @@ from pathlib import Path
 from typing import Any
 
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
+
+DEFAULT_FOLDER = "general"
 
 
 class StorageCorruptionError(RuntimeError):
     """Raised when a prompt store cannot be safely interpreted."""
+
+
+def _derive_folder(entry: dict[str, Any]) -> str:
+    """Best-effort folder for an entry that predates the v3 folder field.
+
+    Deterministic and conservative: falls back to DEFAULT_FOLDER rather than
+    guessing from free text. Seed-authored entries get their folder assigned
+    explicitly by seeds.py, so this only matters for non-seed legacy entries.
+    """
+    category = str(entry.get("category") or "").strip().lower()
+    if category and category != "workflow":
+        return category
+    states = entry.get("workflow_states") or []
+    if states:
+        return f"captured/{states[0]}"
+    return DEFAULT_FOLDER
+
+
+def migrate_to_v3(prompts: dict[str, dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    """Add a `folder` field to every entry that is missing one. Additive only.
+
+    Never removes or renames the existing `category` field, so schema v2
+    consumers reading the raw JSON (or a human editing it) are unaffected.
+    Idempotent: entries that already carry `folder` are left untouched.
+    """
+    for entry in prompts.values():
+        if not isinstance(entry, dict):
+            raise StorageCorruptionError("Prompt library has a non-object prompt entry; refusing to migrate.")
+        if "folder" not in entry or not entry["folder"]:
+            entry["folder"] = _derive_folder(entry)
+    return prompts
 
 
 def load_prompts(path: Path) -> dict[str, dict[str, Any]]:
@@ -38,7 +71,7 @@ def load_prompts(path: Path) -> dict[str, dict[str, Any]]:
         raise StorageCorruptionError(
             f"Prompt library at {path} has an invalid prompt mapping. The file was left unchanged."
         )
-    return prompts
+    return migrate_to_v3(prompts)
 
 
 def save_prompts(path: Path, prompts: dict[str, dict[str, Any]]) -> None:

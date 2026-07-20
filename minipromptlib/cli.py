@@ -11,6 +11,7 @@ from pathlib import Path
 from .capture import create_capture_draft, save_capture_draft
 from .classifier import classify_workflow_state
 from .core import MiniPromptLibrary, make_ollama_chat_fn
+from .harvest import DUPLICATE_THRESHOLD, HarvestDraft, build_drafts
 from .models import ContextPacket, WorkflowState
 from .navigator import InvalidChoiceError, WorkflowNavigator
 from .ranking import page_ranked_prompts
@@ -57,7 +58,9 @@ def cmd_save(args: argparse.Namespace) -> None:
 
 def cmd_list(args: argparse.Namespace) -> None:
     library = _library(args)
-    results = library.list_prompts(tags=args.tags, category=args.category, search=args.search, limit=args.limit)
+    results = library.list_prompts(
+        tags=args.tags, category=args.category, search=args.search, limit=args.limit, folder=args.folder
+    )
     for prompt in results:
         print(f"{prompt['id']} | {prompt.get('name', prompt['id'])}")
     if not results:
@@ -104,8 +107,16 @@ def cmd_rename(args: argparse.Namespace) -> None:
 
 def cmd_edit(args: argparse.Namespace) -> None:
     library = _library(args)
-    if args.text is None and args.description is None and args.tags is None and args.category is None:
-        raise SystemExit("Nothing to edit. Supply at least one of --text, --description, --tags, --category.")
+    if (
+        args.text is None
+        and args.description is None
+        and args.tags is None
+        and args.category is None
+        and args.folder is None
+    ):
+        raise SystemExit(
+            "Nothing to edit. Supply at least one of --text, --description, --tags, --category, --folder."
+        )
     try:
         updated = library.edit_prompt(
             args.prompt_id,
@@ -113,6 +124,7 @@ def cmd_edit(args: argparse.Namespace) -> None:
             description=args.description,
             tags=args.tags,
             category=args.category,
+            folder=args.folder,
         )
     except (KeyError, ValueError) as exc:
         raise SystemExit(str(exc)) from exc
@@ -156,6 +168,19 @@ def cmd_mine(args: argparse.Namespace) -> None:
         max_candidates=args.max_candidates,
     )
     print(json.dumps(candidates, ensure_ascii=False, indent=2))
+
+
+def cmd_folders(args: argparse.Namespace) -> None:
+    library = _library(args)
+    counts = library.list_folders()
+    if args.json:
+        print(json.dumps(counts, ensure_ascii=False))
+        return
+    if not counts:
+        print("No saved prompts yet. Run: mini seed")
+        return
+    for folder, count in counts.items():
+        print(f"{folder} ({count})")
 
 
 def cmd_seed(args: argparse.Namespace) -> None:
@@ -338,6 +363,137 @@ def _interactive_suggest(navigator: WorkflowNavigator, packet: ContextPacket) ->
         print("Use a displayed number, v N, m, n, p, c, r, a, b, h, or q.")
 
 
+def _draft_payload(draft: HarvestDraft) -> dict:
+    return {
+        "original_text": draft.original_text,
+        "generalized_text": draft.generalized_text,
+        "changes": draft.changes,
+        "suggested_name": draft.suggested_name,
+        "suggested_folder": {
+            "folder": draft.suggested_folder.folder,
+            "confidence": draft.suggested_folder.confidence,
+            "reason": draft.suggested_folder.reason,
+        },
+        "duplicate": (
+            {"id": draft.duplicate.prompt_id, "name": draft.duplicate.name, "overlap": draft.duplicate.overlap}
+            if draft.duplicate
+            else None
+        ),
+    }
+
+
+def _read_harvest_input(args: argparse.Namespace) -> str:
+    if args.file:
+        return Path(args.file).read_text(encoding="utf-8")
+    if args.text:
+        return args.text
+    return sys.stdin.read()
+
+
+def cmd_harvest(args: argparse.Namespace) -> None:
+    """Detect, generalize, and (with per-candidate consent) save reusable prompts.
+
+    Input is only the supplied --file/--text/stdin content -- no conversation
+    history is read. Nothing is written to the library without an explicit
+    save choice for that specific candidate.
+    """
+    conversation = _read_harvest_input(args)
+    if not conversation.strip():
+        raise SystemExit("No content provided. Use --file, --text, or pipe text on stdin.")
+
+    library = _library(args)
+    existing_prompts = library.list_prompts(limit=1000)
+    drafts = build_drafts(conversation, existing_prompts)
+
+    if args.json:
+        print(json.dumps({"version": 1, "candidates": [_draft_payload(d) for d in drafts]}, ensure_ascii=False))
+        return
+
+    if not drafts:
+        print("No reusable instruction candidates found in the supplied text.")
+        return
+
+    print(f"Found {len(drafts)} reusable instruction candidate(s) in the supplied context:\n")
+    saved = 0
+    for index, draft in enumerate(drafts, 1):
+        print(f"[{index}/{len(drafts)}] Original (yours):")
+        print(f"  {draft.original_text}")
+        if draft.changes:
+            print("Generalized (proposed):")
+            print(f"  {draft.generalized_text}")
+            print(f"  changes: {'; '.join(draft.changes)}")
+        else:
+            print("Generalized: (no changes proposed -- text already looks general)")
+        print(f"Suggested name:   {draft.suggested_name}")
+        print(
+            f"Suggested folder: {draft.suggested_folder.folder}  "
+            f"(reason: {draft.suggested_folder.reason}; confidence: {draft.suggested_folder.confidence})"
+        )
+        if draft.duplicate:
+            print(
+                f"Similar existing: {draft.duplicate.name} ({draft.duplicate.overlap:.0%} overlap) "
+                f"-- at/above the {DUPLICATE_THRESHOLD:.0%} dedupe threshold"
+            )
+        folder = draft.suggested_folder.folder
+        text_to_save = draft.generalized_text
+        while True:
+            prompt = (
+                "Save [g]eneralized / [o]riginal / [e]dit / change [f]older / [s]kip"
+                + (" / [u]pdate existing / save as [v]ariant" if draft.duplicate else "")
+                + ": "
+            )
+            choice = input(prompt).strip().lower()
+
+            if choice in {"s", "skip"}:
+                print("Skipped.\n")
+                break
+
+            if choice in {"g", "generalized"}:
+                text_to_save = draft.generalized_text
+                continue
+
+            if choice in {"o", "original"}:
+                text_to_save = draft.original_text
+                continue
+
+            if choice in {"e", "edit"}:
+                edited = input("Enter the text to save: ").strip()
+                if edited:
+                    text_to_save = edited
+                continue
+
+            if choice in {"f", "folder"}:
+                new_folder = input("Folder path (e.g. review/async): ").strip().strip("/")
+                if new_folder:
+                    folder = new_folder
+                continue
+
+            if choice in {"u", "update"} and draft.duplicate:
+                library.edit_prompt(draft.duplicate.prompt_id, prompt_text=text_to_save, folder=folder)
+                print(f"Updated existing: {draft.duplicate.prompt_id}\n")
+                saved += 1
+                break
+
+            if choice in {"v", "variant"} and draft.duplicate:
+                prompt_id = library.save_mini_prompt(
+                    text_to_save, name=draft.suggested_name, folder=folder, category="captured"
+                )
+                print(f"Saved as variant: {prompt_id}\n")
+                saved += 1
+                break
+
+            if choice in {"y", "yes", "save"}:
+                prompt_id = library.save_mini_prompt(
+                    text_to_save, name=draft.suggested_name, folder=folder, category="captured"
+                )
+                print(f"Saved: {prompt_id}\n")
+                saved += 1
+                break
+
+            print("Use g, o, e, f, s, y" + (", u, or v" if draft.duplicate else "") + ".")
+    print(f"Harvest complete: {saved} saved, {len(drafts) - saved} skipped.")
+
+
 def cmd_capture(args: argparse.Namespace) -> None:
     library = _library(args)
     draft = create_capture_draft(args.prompt_text)
@@ -378,9 +534,14 @@ def build_parser() -> argparse.ArgumentParser:
     listing = sub.add_parser("list", help="List prompts")
     listing.add_argument("--tags", "-t", nargs="*")
     listing.add_argument("--category", "-c")
+    listing.add_argument("--folder", "-f", help="Match this folder or any folder nested under it.")
     listing.add_argument("--search", "-s")
     listing.add_argument("--limit", "-l", type=int, default=30)
     listing.set_defaults(func=cmd_list)
+
+    folders = sub.add_parser("folders", help="Show folder tree with prompt counts")
+    folders.add_argument("--json", action="store_true")
+    folders.set_defaults(func=cmd_folders)
 
     get = sub.add_parser("get", help="Show a prompt")
     get.add_argument("prompt_id")
@@ -403,6 +564,7 @@ def build_parser() -> argparse.ArgumentParser:
     edit.add_argument("--description")
     edit.add_argument("--tags", nargs="*")
     edit.add_argument("--category")
+    edit.add_argument("--folder")
     edit.set_defaults(func=cmd_edit)
 
     search = sub.add_parser("search", help="Keyword search")
@@ -426,6 +588,14 @@ def build_parser() -> argparse.ArgumentParser:
     )
     mine.add_argument("--max-candidates", type=int, default=10)
     mine.set_defaults(func=cmd_mine)
+
+    harvest = sub.add_parser(
+        "harvest", help="Detect and (with consent) save reusable prompts from supplied text"
+    )
+    harvest.add_argument("--file", "-f")
+    harvest.add_argument("--text", "-t")
+    harvest.add_argument("--json", action="store_true", help="Print candidate drafts as JSON; never saves.")
+    harvest.set_defaults(func=cmd_harvest)
 
     seed = sub.add_parser("seed", help="Load the authored seed panel")
     seed.add_argument("--panel", default=str(default_seed_panel()))

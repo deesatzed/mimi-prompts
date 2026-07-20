@@ -58,6 +58,7 @@ class MiniPromptLibrary:
         category: str = "general",
         description: str = "",
         overwrite: bool = False,
+        folder: Optional[str] = None,
     ) -> str:
         """
         Save a new mini-prompt or update existing one.
@@ -82,6 +83,7 @@ class MiniPromptLibrary:
             "description": description.strip(),
             "tags": sorted(set(tags or [])),
             "category": category.lower().strip(),
+            "folder": (folder or category).lower().strip() or "general",
             "created_at": now,
             "last_used": None,
             "usage_count": 0,
@@ -150,6 +152,7 @@ class MiniPromptLibrary:
         description: Optional[str] = None,
         tags: Optional[List[str]] = None,
         category: Optional[str] = None,
+        folder: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Mutate only the supplied fields of an existing prompt; bumps its version."""
         entry = self.get_prompt(prompt_id)
@@ -166,9 +169,22 @@ class MiniPromptLibrary:
             self.prompts[pid]["tags"] = sorted(set(tags))
         if category is not None:
             self.prompts[pid]["category"] = category.lower().strip()
+        if folder is not None:
+            folder = folder.strip().strip("/")
+            if not folder:
+                raise ValueError("folder cannot be empty")
+            self.prompts[pid]["folder"] = folder
         self.prompts[pid]["version"] = self.prompts[pid].get("version", 1) + 1
         self._save()
         return self.prompts[pid].copy()
+
+    def list_folders(self) -> Dict[str, int]:
+        """Return a mapping of folder path to prompt count, sorted by path."""
+        counts: Dict[str, int] = {}
+        for entry in self.prompts.values():
+            folder = entry.get("folder") or "general"
+            counts[folder] = counts.get(folder, 0) + 1
+        return dict(sorted(counts.items()))
 
     def get_prompt(self, prompt_id: str) -> Optional[Dict[str, Any]]:
         """Retrieve full prompt entry by ID or name."""
@@ -187,19 +203,27 @@ class MiniPromptLibrary:
         category: Optional[str] = None,
         search: Optional[str] = None,
         limit: int = 100,
+        folder: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
         """
         List prompts with optional filtering.
         `search` does simple substring match on name/description/prompt_text.
+        `folder` matches the entry's folder exactly, or any folder nested under it
+        (e.g. folder="review" also matches "review/async").
         """
         results = []
         tag_set = set(t.lower() for t in (tags or []))
         cat = category.lower().strip() if category else None
         search_lower = search.lower().strip() if search else None
+        folder_filter = folder.strip().strip("/").lower() if folder else None
 
         for pid, entry in self.prompts.items():
             if cat and entry.get("category") != cat:
                 continue
+            if folder_filter:
+                entry_folder = str(entry.get("folder") or "general").lower()
+                if entry_folder != folder_filter and not entry_folder.startswith(folder_filter + "/"):
+                    continue
             if tag_set and not tag_set.issubset(set(t.lower() for t in entry.get("tags", []))):
                 continue
             if search_lower:
