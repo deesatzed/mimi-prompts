@@ -97,6 +97,8 @@ Use the offline navigator for the primary flow:
 mini suggest --context "The build failed with a traceback"
 ```
 
-It returns at most three workflow-aware suggestions. Ranking uses logical workflow relevance first, then bounded `selection_count` frequency. The 41 authored entries in `seeds.md` are loaded through `python3 seeds.py` or `mini seed`.
+It returns at most three workflow-aware suggestions. Ranking uses logical workflow relevance first, then bounded `selection_count` frequency. The 41 authored entries in `seeds.md` are loaded through `python3 seeds.py` or `mini seed`, organized under an explicit folder taxonomy (`mini folders`).
+
+`mini harvest --file/--text/<stdin>` detects reusable instructions in text the caller supplies, proposes a generalized rewrite and a recommended folder, and saves nothing without per-candidate consent — like the rest of the app, it never reads conversation history on its own and never auto-saves. `mini feedback`/`mini stats` close the usage-outcome loop; `mini rm`/`rename`/`edit` manage the library directly.
 
 The app does not need an LLM for the core workflow and does not scrape conversation history, auto-save capture drafts, push code, or change global configuration. Keep tests and demonstrations on temporary storage, never the user's real prompt library.

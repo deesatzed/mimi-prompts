@@ -48,11 +48,26 @@ Choose a number to retrieve a prompt. That explicit choice is the only action th
 | Show another small page | `m` / `more` |
 | Re-evaluate after a correction | `r` / `retry` |
 | Add a second prompt | `n` / `nest` |
+| View a suggestion without selecting it | `v N` |
 | Inspect selected prompts | `p` / `preview` |
 | Print the chosen composition | `c` / `compose` |
 | Save a new thought safely | `a` / `add thought`, then confirm |
+| Undo the last selection | `b` / `back` (also undoes its selection count) |
 
 The core does not scrape a conversation, call a model, auto-save a prompt, execute prompt text, or change a host application's configuration.
+
+## Library management, harvesting, and feedback
+
+| Need | Command |
+| --- | --- |
+| Delete / rename / edit a saved prompt | `mini rm <id>`, `mini rename <id> "New Title"`, `mini edit <id> --text "..."` |
+| See the folder taxonomy | `mini folders` |
+| List prompts in a folder | `mini list --folder review` |
+| Pull reusable prompts out of pasted text | `mini harvest --text "Always check for race conditions..."` (never reads history; nothing saves without your consent) |
+| Record whether a prompt actually helped | `mini feedback <id> --helped` / `--not-helped` |
+| See usage stats and underperforming prompts | `mini stats` |
+
+`mini harvest` only reads the `--file`/`--text`/stdin content you give it, shows you a generalized rewrite next to your original wording, recommends a folder with its confidence, warns about near-duplicates, and saves nothing until you confirm. See the [terminal UX guide](docs/ux-guide.md) for the full walkthrough.
 
 ## Install, UX, and host guides
 
