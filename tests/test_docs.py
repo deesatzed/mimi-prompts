@@ -27,6 +27,22 @@ class DocumentationTests(unittest.TestCase):
             text = path.read_text(encoding="utf-8").lower()
             self.assertIn("41", text, f"{path.name} is missing the current seed count '41'")
 
+    def test_ux_guide_documents_the_phase_1_through_4_commands(self) -> None:
+        root = Path(__file__).resolve().parents[1]
+        guide = (root / "docs" / "ux-guide.md").read_text(encoding="utf-8")
+
+        for term in (
+            "mini rm",
+            "mini rename",
+            "mini edit",
+            "mini folders",
+            "mini harvest",
+            "mini feedback",
+            "mini stats",
+            "clarifying question",
+        ):
+            self.assertIn(term, guide, f"docs/ux-guide.md is missing {term!r}")
+
     def test_public_readme_has_install_and_host_links(self) -> None:
         root = Path(__file__).resolve().parents[1]
         readme = (root / "README.md").read_text(encoding="utf-8")
