@@ -58,6 +58,12 @@ class DetectTests(unittest.TestCase):
 
         self.assertEqual(detect_candidates(text), [])
 
+    def test_opener_words_require_a_boundary_not_just_a_prefix(self) -> None:
+        # "reviewing" must not match the "review" opener; word forms differ.
+        text = "reviewing the current release notes for the upcoming launch today"
+
+        self.assertEqual(detect_candidates(text), [])
+
 
 class GeneralizeTests(unittest.TestCase):
     def test_kebab_project_identifiers_with_three_or_more_segments_are_parameterized(self) -> None:

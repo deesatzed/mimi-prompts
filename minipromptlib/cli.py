@@ -11,10 +11,10 @@ from pathlib import Path
 from .capture import create_capture_draft, save_capture_draft
 from .classifier import classify_workflow_state
 from .core import MiniPromptLibrary, make_ollama_chat_fn
-from .harvest import DUPLICATE_THRESHOLD, HarvestDraft, build_drafts
+from .harvest import DUPLICATE_THRESHOLD, HarvestDraft, build_drafts, detect_candidates
 from .models import ContextPacket, WorkflowState
 from .navigator import InvalidChoiceError, WorkflowNavigator
-from .ranking import page_ranked_prompts
+from .ranking import is_weak_signal, page_ranked_prompts
 from .seeds import default_seed_panel, seed_library
 
 
@@ -183,6 +183,44 @@ def cmd_folders(args: argparse.Namespace) -> None:
         print(f"{folder} ({count})")
 
 
+def cmd_feedback(args: argparse.Namespace) -> None:
+    library = _library(args)
+    entry = library.get_prompt(args.prompt_id)
+    if not entry:
+        raise SystemExit(f"Prompt '{args.prompt_id}' not found.")
+    if args.helped and args.not_helped:
+        raise SystemExit("Choose only one of --helped or --not-helped.")
+    if not args.helped and not args.not_helped:
+        raise SystemExit("Supply --helped or --not-helped.")
+    success = True if args.helped else False
+    library.log_usage(entry["id"], success=success)
+    verdict = "helped" if success else "did not help"
+    print(f"Recorded: {entry.get('name', entry['id'])} {verdict}.")
+
+
+def cmd_stats(args: argparse.Namespace) -> None:
+    library = _library(args)
+    if not library.list_prompts(limit=1):
+        print("No saved prompts yet. Run: mini seed")
+        return
+    all_prompts = library.list_prompts(limit=1000)
+    total_selections = sum(p.get("selection_count", 0) for p in all_prompts)
+    total_usage = sum(p.get("usage_count", 0) for p in all_prompts)
+    print(f"Prompts: {len(all_prompts)} | total selections: {total_selections} | total feedback: {total_usage}")
+
+    underperforming = library.get_underperforming_prompts(
+        min_usage=args.min_usage, success_threshold=args.success_threshold
+    )
+    if not underperforming:
+        print("No underperforming prompts at the current thresholds.")
+        return
+    print(f"\nUnderperforming (below {args.success_threshold:.0%} success, min {args.min_usage} uses):")
+    for entry in underperforming:
+        total = entry.get("success_count", 0) + entry.get("failure_count", 0)
+        rate = entry.get("success_count", 0) / total if total else 0.0
+        print(f"  {entry['id']} — {rate:.0%} success ({total} uses). Consider: mini improve {entry['id']}")
+
+
 def cmd_seed(args: argparse.Namespace) -> None:
     inserted = seed_library(_library(args), args.panel, overwrite=args.overwrite)
     print(f"Seeded {inserted} prompt(s).")
@@ -221,6 +259,23 @@ def cmd_suggest(args: argparse.Namespace) -> None:
             return
         _interactive_suggest(navigator, packet)
         return
+
+    if (
+        not args.choice
+        and not args.state
+        and not args.json
+        and not args.show_anyway
+        and is_weak_signal(packet, library.list_prompts(limit=1000))
+    ):
+        print(
+            "No strong signal. Rerun with one of:\n"
+            f'  mini suggest --state undecided --context "{args.context}"   (deciding)\n'
+            f'  mini suggest --state checkpoint --context "{args.context}"  (reviewing)\n'
+            f'  mini suggest --state completion --context "{args.context}"  (shipping)\n'
+            f'  mini suggest --context "{args.context}" --show-anyway  (show suggestions anyway)'
+        )
+        return
+
     payload, session = _suggestion_payload(packet, navigator, args.offset)
 
     if args.choice:
@@ -264,10 +319,36 @@ def cmd_suggest(args: argparse.Namespace) -> None:
         print('Capture a thought: mini capture "<your thought>"')
 
 
+def _ask_feedback_for_session(navigator: WorkflowNavigator, session) -> None:
+    """On quit, ask once per selected prompt whether it helped. Skip records nothing."""
+    for prompt_id in session.selected_prompt_ids:
+        entry = navigator.library.get_prompt(prompt_id)
+        if not entry:
+            continue
+        answer = input(f"Did '{entry.get('name', prompt_id)}' help? [y/n/skip]: ").strip().lower()
+        if answer in {"y", "yes"}:
+            navigator.library.log_usage(prompt_id, success=True)
+        elif answer in {"n", "no"}:
+            navigator.library.log_usage(prompt_id, success=False)
+        # skip (or anything else) records nothing.
+
+
 def _interactive_suggest(navigator: WorkflowNavigator, packet: ContextPacket) -> None:
     """Small terminal loop for number, more, retry, nesting, and capture actions."""
     session = navigator.start(packet)
     print(f"Storage: {navigator.library.storage_path}")
+    if is_weak_signal(session.packet, navigator.library.list_prompts(limit=1000)):
+        answer = input(
+            "No strong signal. Is this about [d]eciding, [r]eviewing, [s]hipping, or [x] show anyway? "
+        ).strip().lower()
+        state_map = {"d": WorkflowState.UNDECIDED, "r": WorkflowState.CHECKPOINT, "s": WorkflowState.COMPLETION}
+        if answer in state_map:
+            navigator.try_again(session, ContextPacket(explicit_state=state_map[answer]))
+        # "x" (or anything else) falls through and shows the original page as-is.
+    nudged_this_session = False
+    if detect_candidates(packet.last_user_message):
+        print("That reads like a reusable rule — press [a] to review it as a capture draft.")
+        nudged_this_session = True
     while True:
         page = navigator.current_page(session)
         state = classify_workflow_state(session.packet).state.value
@@ -279,6 +360,7 @@ def _interactive_suggest(navigator: WorkflowNavigator, packet: ContextPacket) ->
             "[r] retry  [a] add thought  [b] back  [h] help  [q] quit: "
         ).strip().lower()
         if action in {"q", "quit"}:
+            _ask_feedback_for_session(navigator, session)
             return
         if action in {"h", "help", "?"}:
             print(
@@ -335,6 +417,9 @@ def _interactive_suggest(navigator: WorkflowNavigator, packet: ContextPacket) ->
         if action in {"r", "retry"}:
             context = input("Revised context: ").strip()
             navigator.try_again(session, ContextPacket(last_user_message=context))
+            if not nudged_this_session and detect_candidates(context):
+                print("That reads like a reusable rule — press [a] to review it as a capture draft.")
+                nudged_this_session = True
             continue
         if action in {"b", "back"}:
             if not session.selected_prompt_ids:
@@ -589,6 +674,17 @@ def build_parser() -> argparse.ArgumentParser:
     mine.add_argument("--max-candidates", type=int, default=10)
     mine.set_defaults(func=cmd_mine)
 
+    feedback = sub.add_parser("feedback", help="Record whether a used prompt helped")
+    feedback.add_argument("prompt_id")
+    feedback.add_argument("--helped", action="store_true")
+    feedback.add_argument("--not-helped", action="store_true")
+    feedback.set_defaults(func=cmd_feedback)
+
+    stats = sub.add_parser("stats", help="Show usage stats and underperforming prompts")
+    stats.add_argument("--min-usage", type=int, default=3)
+    stats.add_argument("--success-threshold", type=float, default=0.6)
+    stats.set_defaults(func=cmd_stats)
+
     harvest = sub.add_parser(
         "harvest", help="Detect and (with consent) save reusable prompts from supplied text"
     )
@@ -616,6 +712,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     suggest.add_argument("--json", action="store_true")
     suggest.add_argument("--interactive", action="store_true")
+    suggest.add_argument(
+        "--show-anyway",
+        action="store_true",
+        help="Skip the weak-signal clarifying prompt and show suggestions even with no strong match.",
+    )
     suggest.set_defaults(func=cmd_suggest)
 
     capture = sub.add_parser("capture", help="Preview or confirm a newly captured prompt")

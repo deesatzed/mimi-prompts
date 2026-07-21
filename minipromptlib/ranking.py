@@ -80,3 +80,30 @@ def page_ranked_prompts(
 ) -> list[RankedPrompt]:
     """Return one stable, bounded suggestion page."""
     return ranked[offset : offset + page_size]
+
+
+def is_weak_signal(packet: ContextPacket, prompts: Iterable[dict], *, page_size: int = 3) -> bool:
+    """True when the classifier landed on `general` and the shown page has no real match.
+
+    Matching `general` is not itself a real signal -- it is the classifier's
+    fallback bucket when nothing else fits, so a prompt tagged `general` scores
+    highly regardless of relevance. "Real match" here means at least one of the
+    displayed candidates shares an actual context word with the query. Without
+    this, the ranked page is really just an alphabetical shelf with a
+    confident-sounding reason attached to it; the CLI uses this signal to offer
+    a one-keypress clarifying question instead.
+    """
+    state = classify_workflow_state(packet).state.value
+    if state != "general":
+        return False
+    context_tokens = _tokens(
+        " ".join((packet.last_agent_message, packet.last_user_message, packet.build_status))
+    )
+    if not context_tokens:
+        return True
+    prompts = list(prompts)
+    if not prompts:
+        return False
+    ranked = rank_prompts(packet, prompts)
+    page = page_ranked_prompts(ranked, page_size=page_size)
+    return all(not (context_tokens & _prompt_tokens(item.prompt)) for item in page)

@@ -170,7 +170,7 @@ class CliUxTests(unittest.TestCase):
             cwd=self.root,
             check=False,
             text=True,
-            input="1\nn\n1\np\nb\nc\nq\n",
+            input="1\nn\n1\np\nb\nc\nq\nskip\n",
             capture_output=True,
         )
 

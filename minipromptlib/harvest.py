@@ -34,6 +34,17 @@ _NARRATION_MARKERS = (
 MIN_CANDIDATE_LENGTH = 25
 MAX_CANDIDATE_LENGTH = 600
 
+
+def _starts_with_word(text: str, phrase: str) -> bool:
+    if not text.startswith(phrase):
+        return False
+    rest = text[len(phrase):]
+    return rest == "" or not rest[0].isalnum()
+
+
+def _contains_word(text: str, phrase: str) -> bool:
+    return bool(re.search(rf"(?<![a-z]){re.escape(phrase)}(?![a-z])", text))
+
 _PLACEHOLDER_PATTERNS: tuple[tuple[re.Pattern, str], ...] = (
     (re.compile(r"https?://\S+"), "{url}"),
     (re.compile(r"\b\d+\.\d+\.\d+(?:[-+][\w.]+)?\b"), "{version}"),
@@ -126,11 +137,11 @@ def detect_candidates(text: str) -> list[Candidate]:
         if any(marker in lowered for marker in _NARRATION_MARKERS):
             continue
 
-        opener_match = next((op for op in _IMPERATIVE_OPENERS if lowered.startswith(op)), None)
+        opener_match = next((op for op in _IMPERATIVE_OPENERS if _starts_with_word(lowered, op)), None)
         rule_marker_match = None
         if not opener_match:
             rule_marker_match = next(
-                (op for op in ("always", "never", "make sure", "before", "must") if op in lowered),
+                (op for op in ("always", "never", "make sure", "before", "must") if _contains_word(lowered, op)),
                 None,
             )
         if not opener_match and not rule_marker_match:
