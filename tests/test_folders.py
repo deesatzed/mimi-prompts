@@ -64,7 +64,7 @@ class FolderCoreTests(unittest.TestCase):
         self.assertEqual({p["id"] for p in under_review}, {"a", "b"})
 
     def test_seed_folders_are_all_assigned_and_no_seed_falls_back_to_general(self) -> None:
-        for number in range(1, 35):
+        for number in range(1, 42):
             self.assertNotEqual(default_folder_for_seed(number), "general", f"seed {number} has no authored folder")
 
     def test_seeding_assigns_the_authored_folder(self) -> None:
@@ -104,7 +104,7 @@ class FolderCliTests(unittest.TestCase):
 
         self.assertEqual(result.returncode, 0, result.stderr)
         counts = json.loads(result.stdout)
-        self.assertEqual(sum(counts.values()), 34)
+        self.assertEqual(sum(counts.values()), 41)
         self.assertIn("explain/simplify", counts)
 
     def test_list_folder_filter_narrows_results(self) -> None:

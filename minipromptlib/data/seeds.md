@@ -316,3 +316,73 @@ Update all relative docuemtns such as README, setup, landing pages, etc that red
 
 ### 34. Current Status
 Explain teh current status in terms of what was built, what was tested, those results, current problems or obstacles, and remaining steps
+
+### 35. Diagnose the Failure
+
+A build, test, or deploy just failed. Before proposing a fix:
+
+1. Quote the exact error message and the first line of the stack trace that points into project code.
+2. State what changed most recently that could plausibly cause this.
+3. Reproduce the failure in isolation, not the whole suite.
+4. List two or three concrete hypotheses for the root cause, ranked by likelihood.
+5. Identify the single cheapest check that would confirm or rule out the top hypothesis.
+
+Do not propose a fix until the root cause is confirmed, not guessed.
+
+### 36. Isolate the Smallest Reproduction
+
+Reduce the current failure to the smallest input, command, or code path that still reproduces it. Remove unrelated files, data, and configuration one at a time until the failure disappears, then restore the last removed piece.
+
+State the minimal reproduction clearly enough that someone else could trigger the same failure without any other context.
+
+### 37. Recurring Failure Protocol
+
+This is the second or later time this same class of failure has occurred. Before touching code again:
+
+1. Reflect on five to seven distinct possible sources of the problem.
+2. Narrow that list to the one or two most likely sources, with reasoning.
+3. Add targeted logging or an assertion that would confirm which of those sources is correct.
+4. Only after that evidence comes back, implement the fix.
+
+Record the failure and its eventual mitigation somewhere durable so the same five minutes are not spent again next time.
+
+### 38. Failure Blast Radius
+
+Given the current failure, determine what else it could be masking or affecting:
+
+* Does it fail closed (safe) or open (unsafe)?
+* Could it have silently corrupted data, state, or a prior successful step?
+* Does it block other work, or is it isolated?
+* Is a rollback or a forward fix safer right now?
+
+State the answer plainly before deciding how urgently to respond.
+
+### 39. What to Save
+
+Before saving this as a reusable mini-prompt, check it against a short bar:
+
+* Would this be useful in more than one project or conversation, not just this one?
+* Is it phrased as an instruction or rule, not a one-off request tied to specific names, files, or values?
+* Does it already overlap heavily with an existing saved prompt?
+
+If it fails any of these, either generalize it first or decide it is not worth saving.
+
+### 40. Generalize Before Saving
+
+Take the exact wording just used and rewrite it so it would still make sense in a different project:
+
+* Replace specific project names, file paths, and identifiers with placeholders.
+* Remove context that only makes sense in this conversation.
+* Keep the underlying instruction and its intent unchanged.
+
+Show the before-and-after side by side so the difference is easy to check before saving.
+
+### 41. Where Does This Belong?
+
+Decide which folder this new mini-prompt belongs in:
+
+* Does an existing folder already hold prompts with a similar purpose?
+* If several folders are close, which one would you look in first when trying to reuse this later?
+* If nothing fits, propose a new folder name that describes the purpose, not the wording of this specific prompt.
+
+State the folder choice and the one-sentence reason for it.

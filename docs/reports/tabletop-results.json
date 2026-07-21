@@ -25,7 +25,7 @@
     {
       "name": "build_failure",
       "status": "PASS",
-      "detail": "2 failure suggestions"
+      "detail": "3 failure suggestions"
     },
     {
       "name": "more_and_retry",

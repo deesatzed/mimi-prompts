@@ -25,7 +25,7 @@ mini --storage "$PWD/.miniprompts/prompts.json" suggest --interactive \
   --context "The test suite failed with a traceback"
 ```
 
-The first command adds the packaged 34-prompt reviewed panel. It is idempotent: running it again does not overwrite the authored prompts.
+The first command adds the packaged 41-prompt reviewed panel. It is idempotent: running it again does not overwrite the authored prompts.
 
 ## Personal store
 

@@ -45,9 +45,9 @@ class SeedTests(unittest.TestCase):
         first = seed_library(library, self.root / "seeds.md")
         second = seed_library(library, self.root / "seeds.md")
 
-        self.assertEqual(first, 34)
+        self.assertEqual(first, 41)
         self.assertEqual(second, 0)
-        self.assertEqual(len(library), 34)
+        self.assertEqual(len(library), 41)
 
     def test_root_seed_script_loads_the_authored_panel(self) -> None:
         result = subprocess.run(
@@ -59,13 +59,13 @@ class SeedTests(unittest.TestCase):
         )
 
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("Seeded 34 prompt(s).", result.stdout)
+        self.assertIn("Seeded 41 prompt(s).", result.stdout)
 
     def test_packaged_seed_panel_has_all_authored_prompts(self) -> None:
         panel = default_seed_panel()
 
         self.assertTrue(panel.is_file())
-        self.assertEqual(len(load_seed_panel(panel)), 34)
+        self.assertEqual(len(load_seed_panel(panel)), 41)
 
     def test_seeded_prompts_display_their_authored_human_title(self) -> None:
         library = MiniPromptLibrary(self.storage)
@@ -75,6 +75,15 @@ class SeedTests(unittest.TestCase):
 
         self.assertEqual(entry["name"], "Explain It Simply")
         self.assertNotEqual(entry["name"], entry["id"])
+
+    def test_failure_and_capture_states_have_real_seed_coverage(self) -> None:
+        seeds = load_seed_panel(self.root / "seeds.md")
+
+        failure_seeds = [s for s in seeds if "failure" in s["workflow_states"]]
+        capture_seeds = [s for s in seeds if "capture" in s["workflow_states"]]
+
+        self.assertGreaterEqual(len(failure_seeds), 4)
+        self.assertGreaterEqual(len(capture_seeds), 3)
 
     def test_reseeding_refreshes_display_title_idempotently(self) -> None:
         library = MiniPromptLibrary(self.storage)

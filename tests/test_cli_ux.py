@@ -147,7 +147,7 @@ class CliUxTests(unittest.TestCase):
             cwd=self.root,
             check=False,
             text=True,
-            input="m\nq\n",
+            input="m\nm\nq\n",
             capture_output=True,
         )
 

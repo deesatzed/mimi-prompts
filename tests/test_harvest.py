@@ -155,7 +155,7 @@ class FolderAndDedupeTests(unittest.TestCase):
         self.assertEqual(len(drafts), 1)
         self.assertEqual(drafts[0].suggested_folder.folder, "discover/user")
         # Nothing was saved: build_drafts never touches the library object.
-        self.assertEqual(len(self.library.list_prompts(limit=1000)), 34)
+        self.assertEqual(len(self.library.list_prompts(limit=1000)), 41)
 
     def test_build_drafts_on_text_with_no_candidates_returns_empty_list(self) -> None:
         drafts = build_drafts("Just some narration about the weekend.", self.prompts)

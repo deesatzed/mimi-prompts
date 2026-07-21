@@ -8,20 +8,24 @@ from pathlib import Path
 
 class DocumentationTests(unittest.TestCase):
     def test_current_docs_describe_verified_workflow_and_limits(self) -> None:
+        # HANDOFF.md and dated packets like HANDOFF_2026-07-18.md are frozen
+        # historical snapshots -- they are allowed to name whatever seed count
+        # was true when they were written. Only files that describe *current*
+        # state (README, CLAUDE.md, and the HANDOFF_LATEST.md pointer target)
+        # must carry the current, accurate seed count.
         root = Path(__file__).resolve().parents[1]
-        paths = [
-            root / "README.md",
-            root / "CLAUDE.md",
-            root / "HANDOFF.md",
-            root / "HANDOFF_2026-07-18.md",
-            root / "HANDOFF_LATEST.md",
-        ]
-        required = ["mini suggest", "selection_count", "34", "offline", "does not"]
+        historical_paths = [root / "HANDOFF.md", root / "HANDOFF_2026-07-18.md"]
+        current_paths = [root / "README.md", root / "CLAUDE.md", root / "HANDOFF_LATEST.md"]
+        shared_required = ["mini suggest", "selection_count", "offline", "does not"]
 
-        for path in paths:
+        for path in historical_paths + current_paths:
             text = path.read_text(encoding="utf-8").lower()
-            for term in required:
+            for term in shared_required:
                 self.assertIn(term, text, f"{path.name} is missing {term!r}")
+
+        for path in current_paths:
+            text = path.read_text(encoding="utf-8").lower()
+            self.assertIn("41", text, f"{path.name} is missing the current seed count '41'")
 
     def test_public_readme_has_install_and_host_links(self) -> None:
         root = Path(__file__).resolve().parents[1]

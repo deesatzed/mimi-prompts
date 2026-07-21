@@ -43,6 +43,13 @@ _STATE_BY_NUMBER = {
     32: ("undecided",),
     33: ("completion",),
     34: ("completion",),
+    35: ("failure",),
+    36: ("failure",),
+    37: ("failure",),
+    38: ("failure", "checkpoint"),
+    39: ("capture",),
+    40: ("capture",),
+    41: ("capture",),
 }
 
 
@@ -83,6 +90,13 @@ _FOLDER_BY_NUMBER = {
     32: "decide/undecided",
     33: "ship/docs",
     34: "ship/status",
+    35: "debug/diagnose",
+    36: "debug/reproduce",
+    37: "debug/recurring",
+    38: "debug/blast-radius",
+    39: "capture/what-to-save",
+    40: "capture/generalize",
+    41: "capture/foldering",
 }
 
 

@@ -21,7 +21,7 @@ mini --storage "$PWD/.miniprompts/prompts.json" suggest --interactive \
   --context "Not sure, lets run through scenarios before deciding."
 ```
 
-The reviewed 34-prompt seed panel is packaged with the installed command. Your prompts are stored locally in the JSON file you choose.
+The reviewed 41-prompt seed panel is packaged with the installed command. Your prompts are stored locally in the JSON file you choose.
 
 You can also use the default personal-store form: `mini seed`, then `mini suggest --interactive --context "..."`.
 
